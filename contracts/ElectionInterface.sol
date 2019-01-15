@@ -8,4 +8,5 @@ contract ElectionInterface {
    function publishSigs() public returns (bool);
 
    event GenesisPublished(address validator /*, string url */);  
+   event NewValidators(uint256 cycle, address[] validators);
 }

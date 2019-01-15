@@ -4,7 +4,11 @@ import "./ElectionInterface.sol";
 
 contract Election is ElectionInterface {
     uint256 public startValidators;
+    uint256 public cycleValidators;
     uint256 public finishValidators;
+
+    uint256 public currValidators;
+
     uint256 public periodBlock;
     uint256 public blockReward;
     uint256 public bondPeriod;
@@ -13,7 +17,6 @@ contract Election is ElectionInterface {
     address head = address(0);
 
     struct elect {
-        bytes32 _hash; //maybe unnessesary bacause we have validatorElectHash
         address _next;
         address _prev;
     }
@@ -24,54 +27,68 @@ contract Election is ElectionInterface {
     constructor () public {
     }
 
-    function electMe(uint256 _pubKey, uint256 _nonce, uint256 _hash) public returns (bool) {
-        require(sha256(_pubKey + nonce) == _hash);
+    function electMe(bytes32 _pubKey, uint256 _nonce, bytes32 _hash) public returns (bool) {
+        require(sha256(abi.encodePacked(_pubKey, _nonce, this))== _hash);
         require(_hash < validatorElectHash[msg.sender]);
 
-        validatorElectHash[msg.sender] = _hash
+        validatorElectHash[msg.sender] = _hash;
 
         return _insert(msg.sender, _hash);
     }
 
     function publishSigs() public returns (bool) {
-        require(block.number >= nextElectionBlockEnd);
+        if (currValidators >= finishValidators) selfdestruct(address(0)); // destroy or lock
+        require(block.number >= nextElectionBlockEnd);        
         
-        if (head == address(0)) {
-            uint256 i = 0;
+        address[] memory validators = new address[](cycleValidators);
+        uint256 i;
+
+        if (currValidators == 0) {
             while (i < startValidators) {
+                require(list[head]._next != address(0));
+
+                validators[i] = head;
+
                 head = list[head]._next;
                 i++;
             }
-            nextElectionBlockEnd += periodBlock;
-            // make validators publicly accesable
+
+            currValidators += startValidators;
         } else {
-            require(list[head]._next != address(0));
-            head = list[head]._next;
-            // make validators publicly accesable
+            while (i < cycleValidators) {
+                require(list[head]._next != address(0));
+
+                validators[i] = head;
+
+                head = list[head]._next;
+                i++;
+            }
+
+            currValidators += cycleValidators;
         }
+
+        emit NewValidators(nextElectionBlockEnd, validators);
+        nextElectionBlockEnd += periodBlock; // this will not be managed here
         return true;
     }
 
     function _insert(address _addr, bytes32 _hash) internal returns (bool) {
         address pointer = head;
-        if (list[pointer]._hash == bytes32(0)) {
-            list[pointer]._hash = _hash;
-            list[pointer]._next = _addr;
-            list[pointer]._prev = address(0);
+        if (pointer == address(0)) {
+            head = _addr;
         } else {
-            while(list[pointer]._hash != address(0) && _hash > list[list[pointer]._next]._hash) {                
+            while(validatorElectHash[pointer] != bytes32(0) && _hash > validatorElectHash[list[pointer]._next]) {                
                 pointer = list[pointer]._next;
             }
 
-            if (list[_addr]._hash != address(0)) {
+            if (list[_addr]._next != address(0) || list[_addr]._prev != address(0)) {
                 list[list[_addr]._prev]._next = list[_addr]._next;
             }
 
             list[_addr]._next = list[pointer]._next;
             list[_addr]._prev = pointer;
-            list[_addr]._hash = _hash;
 
-            list[list[pointer]._next].prev = _addr;
+            list[list[pointer]._next]._prev = _addr;
             list[pointer]._next = _addr;
         }
 
