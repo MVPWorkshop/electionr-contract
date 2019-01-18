@@ -1,8 +1,9 @@
 pragma solidity >=0.4.21 <0.6.0;
 
 import "./ElectionInterface.sol";
+import "./Locked.sol";
 
-contract Election is ElectionInterface {
+contract Election is ElectionInterface, Locked {
     uint256 public startValidators;
     uint256 public cycleValidators;
     uint256 public finishValidators;
@@ -27,8 +28,8 @@ contract Election is ElectionInterface {
     constructor () public {
     }
 
-    function electMe(bytes32 _pubKey, uint256 _nonce, bytes32 _hash) public returns (bool) {
-        require(sha256(abi.encodePacked(_pubKey, _nonce, this))== _hash);
+    function electMe(bytes32 _pubKey, uint256 _nonce, bytes32 _hash) public isLocked returns (bool) { // todo: locked modifier
+        require(sha256(abi.encodePacked(_pubKey, _nonce, this)) == _hash);
         require(_hash < validatorElectHash[msg.sender]);
 
         validatorElectHash[msg.sender] = _hash;
@@ -36,39 +37,48 @@ contract Election is ElectionInterface {
         return _insert(msg.sender, _hash);
     }
 
-    function publishSigs() public returns (bool) {
-        if (currValidators >= finishValidators) selfdestruct(address(0)); // destroy or lock
-        require(block.number >= nextElectionBlockEnd);        
+    function publishGenesisSigs() public isLocked returns (bool) {
+        require(block.number >= nextElectionBlockEnd); // time??
+        require(currValidators == 0);
         
         address[] memory validators = new address[](cycleValidators);
         uint256 i;
 
-        if (currValidators == 0) {
-            while (i < startValidators) {
-                require(list[head]._next != address(0));
+        while (i < startValidators) {
+            require(list[head]._next != address(0));
 
-                validators[i] = head;
+            validators[i] = head;
 
-                head = list[head]._next;
-                i++;
-            }
-
-            currValidators += startValidators;
-        } else {
-            while (i < cycleValidators) {
-                require(list[head]._next != address(0));
-
-                validators[i] = head;
-
-                head = list[head]._next;
-                i++;
-            }
-
-            currValidators += cycleValidators;
+            head = list[head]._next;
+            i++;
         }
 
-        emit NewValidators(nextElectionBlockEnd, validators);
-        nextElectionBlockEnd += periodBlock; // this will not be managed here
+        currValidators += startValidators;
+        nextElectionBlockEnd = block.number + periodBlock;
+        emit GenesisValidatorSet(validators);
+        return true;
+    }
+
+    function publishSigs() public isLocked returns (bool) {
+        require(block.number >= nextElectionBlockEnd);
+        require(currValidators != 0);
+
+        address[] memory validators = new address[](cycleValidators);
+        uint256 i;
+
+        while (i < cycleValidators) {
+            require(list[head]._next != address(0));
+
+            validators[i] = head;
+
+            head = list[head]._next;
+            i++;
+        }
+
+        currValidators += cycleValidators;
+        if (currValidators >= finishValidators) lock();
+        nextElectionBlockEnd += periodBlock;
+        emit NewValidatorsSet((currValidators - startValidators) / cycleValidators, validators);
         return true;
     }
 
