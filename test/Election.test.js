@@ -22,6 +22,8 @@ contract('Election', (accounts) => {
         '109595722358039830379858391128487275133037869347420215341164378831308260445922'
     ];
 
+    const nonce = 0;
+
     beforeEach(async () => {
         this.election = await Election.new(
             START_VALIDATORS,
@@ -43,7 +45,6 @@ contract('Election', (accounts) => {
         describe('when their is no elected persons', () => {
             it('person A is elected', async () => {
                 const publicKey = this.elects[0].publicKey;
-                const nonce = 0;
 
                 await this.election.electMe(publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
                 const head = await this.election.head();
@@ -52,7 +53,6 @@ contract('Election', (accounts) => {
 
             it('wrongly calculated hash', async () => {
                 const publicKey = this.elects[0].publicKey;
-                const nonce = 0;
 
                 const hash = calculateHash(publicKey, nonce + 1, this.election.address);
 
@@ -62,8 +62,6 @@ contract('Election', (accounts) => {
 
         describe('when A is only elected person', () => {
             it('sending bigger hash', async () => {
-                const nonce = 0;
-
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
                 const head = await this.election.head();
@@ -80,8 +78,6 @@ contract('Election', (accounts) => {
 
         describe('when person B is electing himself', async () => {
             it('person A has smaller hash then person B', async () => {
-                const nonce = 0;
-
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
                 const head = await this.election.head();
@@ -89,8 +85,6 @@ contract('Election', (accounts) => {
             });
 
             it('person A has bigger hash then person B', async () => {
-                const nonce = 0;
-
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[1] });
                 const head = await this.election.head();
@@ -98,8 +92,6 @@ contract('Election', (accounts) => {
             });
 
             it('person B relect himself with lower hash, and his previus hash was larger then A', async () => {
-                const nonce = 0;
-
                 await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[1] });
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[1] });
@@ -110,8 +102,6 @@ contract('Election', (accounts) => {
 
         describe('when person B & C are elected persons', async () => {
             it('person A hash is between ', async () => {
-                const nonce = 0;
-
                 await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[2] });
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[1] });
 
@@ -122,8 +112,6 @@ contract('Election', (accounts) => {
             });
 
             it('person A is relecting himself with hash that is lower and old one was betwean B & C ', async () => {
-                const nonce = 0;
-
                 await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, { from: accounts[2] });
                 await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
@@ -137,8 +125,6 @@ contract('Election', (accounts) => {
     });
     describe('PublishGenesisSigs()', () => {
         it('publishing genesis block', async () => {
-            const nonce = 0;
-
             await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, { from: accounts[2] });
             await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[0] });
             await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
