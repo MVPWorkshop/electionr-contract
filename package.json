@@ -1,0 +1,32 @@
+{
+  "name": "legaler-election-contract",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "bignumber.js": "^8.0.2",
+    "crypto": "^1.0.1",
+    "dotenv": "^6.2.0",
+    "ethereumjs-abi": "^0.6.6",
+    "ethereumjs-wallet": "^0.6.3",
+    "openzeppelin-test-helpers": "^0.1.2",
+    "web3": "^1.0.0-beta.37"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MVPWorkshop/legaler-election-contract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MVPWorkshop/legaler-election-contract/issues"
+  },
+  "homepage": "https://github.com/MVPWorkshop/legaler-election-contract#readme"
+}
