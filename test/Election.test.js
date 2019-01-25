@@ -2,7 +2,7 @@ const { expectEvent, shouldFail } = require('openzeppelin-test-helpers');
 
 const Election = artifacts.require('Election');
 
-const { calculateHash, compareFn } = require('./utils.js');
+const { calculateHash, compareFn, calculateLowerHash, checkIfEqual } = require('./utils.js');
 
 const {
     START_VALIDATORS,
@@ -27,8 +27,8 @@ contract('Election', (accounts) => {
     beforeEach(async () => {
         this.election = await Election.new(
             START_VALIDATORS,
-            END_VALIDATORS,
-            CYCLE_VALIDATORS
+            CYCLE_VALIDATORS,
+            END_VALIDATORS
         );
         this.elects = [];
         for (let i = 0; i < publicKeys.length; i++) {
@@ -48,7 +48,7 @@ contract('Election', (accounts) => {
 
                 await this.election.electMe(publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
                 const head = await this.election.head();
-                assert(head === accounts[0]);
+                assert(checkIfEqual(head, publicKey));
             });
 
             it('wrongly calculated hash', async () => {
@@ -62,17 +62,24 @@ contract('Election', (accounts) => {
 
         describe('when A is only elected person', () => {
             it('sending bigger hash', async () => {
-                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
-                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
+                const publicKey = this.elects[0].publicKey;
+
+                await this.election.electMe(publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
+
+                const data = await calculateLowerHash(this.elects[0].hash, publicKey, nonce, this.election.address);
+                await this.election.electMe(publicKey, data.nonce, data.hash);
+
                 const head = await this.election.head();
-                assert(head === accounts[0]);
+                assert(checkIfEqual(head, publicKey));
             });
 
             it('sending lower hash', async () => {
                 const nonce = 0;
 
-                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
-                await shouldFail.reverting(this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] }));
+                const data = await calculateLowerHash(this.elects[0].hash, this.elects[0].publicKey, nonce, this.election.address);
+                await this.election.electMe(this.elects[0].publicKey, data.nonce, data.hash, { from: accounts[0] });
+
+                await shouldFail.reverting(this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] }));
             });
         });
 
@@ -81,59 +88,109 @@ contract('Election', (accounts) => {
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
                 const head = await this.election.head();
-                assert(head === accounts[0]);
+                assert(checkIfEqual(head, this.elects[0].publicKey));
             });
 
             it('person A has bigger hash then person B', async () => {
-                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
-                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[1] });
+                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
+                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
                 const head = await this.election.head();
-                assert(head === accounts[1]);
+                assert(checkIfEqual(head, this.elects[0].publicKey));
             });
 
             it('person B relect himself with lower hash, and his previus hash was larger then A', async () => {
-                await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[1] });
-                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
-                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[1] });
+                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
+                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
+
+                const data = await calculateLowerHash(this.elects[0].hash, this.elects[1].publicKey, nonce, this.election.address);
+                await this.election.electMe(this.elects[1].publicKey, data.nonce, data.hash, { from: accounts[1] });
+
                 const head = await this.election.head();
-                assert(head === accounts[1]);
+                assert(checkIfEqual(head, this.elects[1].publicKey));
             });
         });
 
         describe('when person B & C are elected persons', async () => {
             it('person A hash is between ', async () => {
-                await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[2] });
-                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[1] });
+                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
 
-                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[0] });
+                const dataA = await calculateLowerHash(this.elects[1].hash, this.elects[0].publicKey, nonce, this.election.address);
+                const dataC = await calculateLowerHash(dataA.hash, this.elects[2].publicKey, nonce, this.election.address);
+
+                await this.election.electMe(this.elects[2].publicKey, dataC.nonce, dataC.hash, { from: accounts[2] });
+                await this.election.electMe(this.elects[0].publicKey, dataA.nonce, dataA.hash, { from: accounts[0] });
 
                 const head = await this.election.head();
-                assert(head === accounts[1]);
+                assert(checkIfEqual(head, this.elects[2].publicKey));
             });
 
             it('person A is relecting himself with hash that is lower and old one was betwean B & C ', async () => {
-                await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, { from: accounts[2] });
-                await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[0] });
                 await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
 
-                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[0] });
+                const dataA = await calculateLowerHash(this.elects[1].hash, this.elects[0].publicKey, nonce, this.election.address);
+                const dataC = await calculateLowerHash(dataA.hash, this.elects[2].publicKey, nonce, this.election.address);
+
+                await this.election.electMe(this.elects[2].publicKey, dataC.nonce, dataC.hash, { from: accounts[2] });
+                await this.election.electMe(this.elects[0].publicKey, dataA.nonce, dataA.hash, { from: accounts[0] });
+
+                const newDataA = await calculateLowerHash(dataC.hash, this.elects[0].publicKey, nonce, this.election.address);
+
+                await this.election.electMe(this.elects[0].publicKey, newDataA.nonce, newDataA.hash, { from: accounts[0] });
 
                 const head = await this.election.head();
-                assert(head === accounts[0]);
+                assert(checkIfEqual(head, this.elects[0].publicKey));
             });
         });
     });
     describe('PublishGenesisSigs()', () => {
-        it('publishing genesis block', async () => {
-            await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, { from: accounts[2] });
-            await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[0] });
-            await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
+        describe('publishing genesis block', async () => {
+            it('with 3 validators and validator[0] is publishing genesis', async () => {
+                await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, { from: accounts[2] });
+                await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[0] });
+                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
 
-            await this.election.publishGenesisSigs({ from: accounts[1]});
+                await this.election.publishGenesisSigs({ from: accounts[1]});
+                const head = await this.election.head();
+                assert(checkIfEqual(head, 0));
+            });
+
+            describe('with 3 validators and validator[0] is NOT publishing genesis', async () => {
+                it('should revert', async () => {
+                    await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, {from: accounts[2]});
+                    await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, {from: accounts[0]});
+                    await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, {from: accounts[1]});
+
+                    await shouldFail.reverting(this.election.publishGenesisSigs({from: accounts[0]}));
+                });
+            });
+
+            describe('insufficient number of validators', () => {
+                it('should revert', async () => {
+                    await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, {from: accounts[2]});
+                    await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, {from: accounts[0]});
+
+                    await shouldFail.reverting(this.election.publishGenesisSigs({from: accounts[0]}));
+                });
+            });
         });
     });
 
     describe('PublishGenesis()', () => {
+        describe('publishing new set of validators', () => {
+            it('when their are 3 validators and their are 3 new validators incoming', async () => {
+                await this.election.electMe(this.elects[3].publicKey, nonce, this.elects[3].hash, { from: accounts[2] });
+                await this.election.electMe(this.elects[2].publicKey, nonce, this.elects[2].hash, { from: accounts[0] });
+                await this.election.electMe(this.elects[1].publicKey, nonce, this.elects[1].hash, { from: accounts[1] });
 
+                await this.election.publishGenesisSigs({ from: accounts[1]});
+
+
+                await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[3] });
+                await this.election.electMe(this.elects[4].publicKey, nonce, this.elects[4].hash, { from: accounts[4] });
+                await this.election.electMe(this.elects[5].publicKey, nonce, this.elects[5].hash, { from: accounts[5] });
+
+                await this.election.publishSigs({ from: accounts[5]});
+            })
+        });
     });
 });

@@ -11,7 +11,7 @@ contract ElectionInterface {
    function publishGenesisSigs() public returns (bool);
 
    // Inserting elect in sorted list
-   function _insert(address _addr, uint256 _pubKey, bytes32 _hash) internal returns (bool);
+   function _insert(uint256 _pubKey, bytes32 _hash) internal returns (bool);
  
    event GenesisValidatorSet(uint256[] validators);
    event NewValidatorsSet(uint256 cycle, uint256[] validators);
