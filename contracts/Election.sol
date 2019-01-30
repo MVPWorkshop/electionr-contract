@@ -102,14 +102,14 @@ contract Election is ElectionInterface, Locked {
         uint256 pointer = head;
         if (pointer == uint256(0)) {
             head = _pubKey;
-        } else {
-            if (_hash < validatorElect[head]._hash && head != _pubKey) {
+        } else if (pointer != _pubKey) {
+            if (_hash < validatorElect[head]._hash) {
                 if (list[_pubKey]._next != uint256(0) || list[_pubKey]._prev != uint256(0)) {
                     list[list[_pubKey]._prev]._next = list[_pubKey]._next;
                 }
 
                 list[pointer]._prev = _pubKey;
-                list[_pubKey]._next = head;
+                list[_pubKey]._next = pointer;
                 head = _pubKey;
             } else {
                 while (validatorElect[list[pointer]._next]._hash != bytes32(0) && _hash > validatorElect[list[pointer]._next]._hash) {

@@ -184,12 +184,11 @@ contract('Election', (accounts) => {
 
                 await this.election.publishGenesisSigs({ from: accounts[1]});
 
-
+                await this.election.electMe(this.elects[5].publicKey, nonce, this.elects[5].hash, { from: accounts[5] });
                 await this.election.electMe(this.elects[0].publicKey, nonce, this.elects[0].hash, { from: accounts[3] });
                 await this.election.electMe(this.elects[4].publicKey, nonce, this.elects[4].hash, { from: accounts[4] });
-                await this.election.electMe(this.elects[5].publicKey, nonce, this.elects[5].hash, { from: accounts[5] });
 
-                await this.election.publishSigs({ from: accounts[5]});
+                await this.election.publishSigs({ from: accounts[1]});
             })
         });
     });
