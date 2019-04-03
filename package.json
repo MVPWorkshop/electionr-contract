@@ -1,5 +1,5 @@
 {
-  "name": "legaler-election-contract",
+  "name": "electionr-election-contract",
   "version": "1.0.0",
   "description": "",
   "main": "",
@@ -18,14 +18,8 @@
   "scripts": {
     "test": "truffle test"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MVPWorkshop/legaler-election-contract.git"
-  },
+  "repository": {},
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/MVPWorkshop/legaler-election-contract/issues"
-  },
-  "homepage": "https://github.com/MVPWorkshop/legaler-election-contract#readme"
+  "bugs": {}
 }
